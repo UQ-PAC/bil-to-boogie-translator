@@ -6,7 +6,7 @@ import scala.collection.mutable.ArrayDeque;
 import java.lang.NullPointerException;
 
 class Worklist(val analysis: AnalysisPoint, startState: State) {
-    private final val debug: Boolean = true;
+    private final val debug: Boolean = false;
     private val directionForwards: Boolean = analysis.isForwards;
     private val libraryFunctions: Set[String] = analysis.libraryFunctions;
 

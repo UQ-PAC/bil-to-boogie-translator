@@ -1,17 +1,16 @@
 package analysis;
 
 import scala.math.signum;
+import scala.collection.mutable.Stack;
 import scala.jdk.CollectionConverters.ListHasAsScala;
 
-import analysis.AnalysisPoint;
 import astnodes.stmt.*;
 import astnodes.stmt.assign.*;
 import astnodes.exp.`var`.*;
 import astnodes.exp.*;
-import util.SegmentationViolationException;
-import util.AssumptionViolationException
-
-import vcgen.State;
+import analysis.AnalysisPoint;
+import util.{SegmentationViolationException, AssumptionViolationException};
+import vcgen.{State, Block, FunctionState};
 
 class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoint {
     // i.e. map of Expr[X0] -> Expr[SP + 10]
@@ -21,7 +20,12 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
     private var stackOffset: Int = 0;
     private var heapAllocations: Int = 0;
 
-    var functionName: String = "main";
+    var currentFunction: String = "main";
+    var functionStack: Stack[String] = Stack("main");
+
+    /* def currentFunction: String = {
+        functionStack.head
+    }*/
 
     def this() = {
         this(Map());
@@ -78,6 +82,7 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
     }
 
     override def transfer(stmt: Stmt) = {
+        println(stmt)
         var newAnalysedMap: Map[Expr, Set[Expr]] = currentState;
         stmt match {
             case assignStmt: Assign => {
@@ -154,14 +159,18 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
                         heapAllocations += 1;
                     }
                     case _ => {
-                        functionName = functionCall.funcName;
+                        currentFunction = functionCall.funcName;
+                        // functionStack.push(functionCall.funcName);
+                        println("\nentering: " + currentFunction);
                     }
                 }
             }
             case returnStmt: ExitSub => {
+                println("\nexiting: " + currentFunction)
+
+                currentFunction = null
                 // function returns i.e. "call LR with noreturn"
                 // test that LR & FP point to the correct thing?
-                ;
             }
             case skipStmt: SkipStmt => {
                 // explicitly do nothing for these statements
@@ -194,12 +203,24 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
 
     override def createLowest = {
         this.currentState = Map[Expr, Set[Expr]]();
+        this.currentFunction = "main"
+        this.functionStack = Stack("main")
         this;
     }
 
     override def applyChanges(preState: State, information: Map[Stmt, this.type]) = {
         preState;
     }
+
+    /**
+     * Copied straight from BoogieTranslator, because I'm lazy. TODO: Put these somewhere public so everything can access them
+     */
+    private def updateAllLines(state: State, fn: Stmt => Stmt): State = updateAllLines(state, PartialFunction.fromFunction(fn))
+    private def updateAllLines(state: State, fn: PartialFunction[Stmt, Stmt]): State = updateAllBlocks(state, block => block.copy(lines = block.lines.collect(fn)))
+    private def updateAllFunctions(state: State, fn: FunctionState => FunctionState): State = state.copy(functions = state.functions.map(fn))
+    private def updateAllBlocks(state: State, fn: Block => Block): State = updateAllFunctions(state, f => f.copy(labelToBlock = f.labelToBlock.map {
+        case (pc, block) => (pc, fn(block))
+    }))
 
     override def toString: String = {
         "PointsToAnalysis: " + currentState.toString;

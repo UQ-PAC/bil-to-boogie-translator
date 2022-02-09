@@ -32,6 +32,8 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
         previousStmtAnalysisState = null;
         blockAnalysisInfo = null;
 
+        println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        println(getAllInfo);
         analysis.applyChanges(startState, getAllInfo);
     }
 
@@ -74,7 +76,8 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
             outputInfo = analyseStmt(blockStmt, outputInfo);
         })
         
-        if (blockAnalysisInfo.getOrElse(block, null) != previousStmtAnalysisState) {
+        if (!previousStmtAnalysisState.asInstanceOf[analysis.type].equals(blockAnalysisInfo.getOrElse(block, null).asInstanceOf[analysis.type])) {
+            println("B")
             blockAnalysisInfo = blockAnalysisInfo + (block -> previousStmtAnalysisState);
 
             (getBlockChildren(block) + block).foreach(b => {

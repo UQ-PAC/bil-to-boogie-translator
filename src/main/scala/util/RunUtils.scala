@@ -46,7 +46,7 @@ object RunUtils {
       statementLoader.gammaMappings.toMap
     );
 
-    // val analysedState = Worklist(ConstantPropagationAnalysis(state), state).doAnalysis
+    val analysedState = Worklist(TestingAnalysis(), state).doAnalysis
 
     val updatedState = BoogieTranslator.translate(state)
 

@@ -100,28 +100,4 @@ abstract class AnalysisPoint {
     def combine(other: this.type): this.type = {
         join(other);
     }
-
-    /**
-     * Another fancy, method that casts "other" to an instance of "this". Please use  this in your transfer, union,
-     * intersection, compare, etc. functions to typecast AnalysisPoints to the correct (matching) type.
-     * 
-     * You might think it would be easier to use scala's subclass comparison thingy where you have
-     *
-     * AnalysisPoint[A <: AnalysisPoint[A]] {
-     *     def transfer(stmt: Stmt): A;
-     * }
-     * ExampleAnalysis(foo) extends AnalysisPoint[ExampleAnalysis]
-     * 
-     * but this causes errors elsewhere in the worklist where we need to operate on sets of 
-     * analyses and guarantee they have the same type.
-     * 
-     * Also, this should work with match statements, but it doesn't. Go figure.
-     */
-    final def typeCheck(other: AnalysisPoint): this.type = {
-        if (this.getClass == other.getClass) {
-            return other.asInstanceOf[this.type];
-        } else {
-            throw new AnalysisTypeException(this.getClass.toString + " : " + other.getClass.toString);
-        }
-    }
 }

@@ -20,28 +20,21 @@ class TestingAnalysis(state: Set[Stmt]) extends AnalysisPoint {
     }
 
     override def equals(other: this.type): Boolean = {
-        var otherAsThis: TestingAnalysis = typeCheck(other);
-        this.toString == otherAsThis.toString;
+        if other == null then return false;
+
+        this.toString == other.toString
     }
 
     override def compare(other: this.type): Int = {
-        var otherAsThis: TestingAnalysis = typeCheck(other);
-
-        (this.currentState.size - otherAsThis.currentState.size).sign;
+        (this.currentState.size - other.currentState.size).sign;
     }
 
     override def join(other: this.type): this.type = {
-        var otherAsThis: TestingAnalysis = typeCheck(other);
-
-        this.currentState = currentState.union(otherAsThis.currentState);
-        this;
+        TestingAnalysis(currentState.union(other.currentState)).asInstanceOf[this.type];
     }
 
     override def meet(other: this.type): this.type = {
-        var otherAsThis: TestingAnalysis = typeCheck(other);
-
-        this.currentState = currentState.intersect(otherAsThis.currentState);
-        this;
+        TestingAnalysis(currentState.intersect(other.currentState)).asInstanceOf[this.type];
     }
 
     override def transfer(stmt: Stmt): this.type = {
@@ -63,13 +56,11 @@ class TestingAnalysis(state: Set[Stmt]) extends AnalysisPoint {
             };
         }
 
-        this.currentState = newState;
-        this;
+        TestingAnalysis(newState).asInstanceOf[this.type];
     }
 
     override def createLowest: this.type = {
-        this.currentState = Set();
-        this;
+        TestingAnalysis(Set()).asInstanceOf[this.type];
     }
 
     override def toString: String = {

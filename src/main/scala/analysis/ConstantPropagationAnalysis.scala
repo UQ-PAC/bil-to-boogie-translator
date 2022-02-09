@@ -81,8 +81,7 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
     * @return
     */
   override def compare(other: this.type): Int = {
-    val otherAsThis : ConstantPropagationAnalysis = typeCheck(other)
-    (this.countEdges - otherAsThis.countEdges).sign
+    (this.countEdges - other.countEdges).sign
   }
 
   private def countEdges: Int = {
@@ -111,13 +110,9 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
   This might not actually work....
   */
   override def equals(other: this.type): Boolean = {
-    var otherAsThis: ConstantPropagationAnalysis = typeCheck(other);
-    
-    if (!functionLocalState.equals(otherAsThis.functionLocalState) || !programGlobalState.equals(otherAsThis.programGlobalState)) {
-      return false
-    }
-    
-    return true
+    if other == null then return false;
+    var x: Boolean = functionLocalState.equals(other.functionLocalState) && programGlobalState.equals(other.programGlobalState)
+    x;
   }
 
   /**
@@ -128,8 +123,6 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
     * @return
     */
   override def join(other: this.type) = {
-    val otherAsThis : ConstantPropagationAnalysis = typeCheck(other)
-
     // println("join")
     // println("before:")
     // println("this:")
@@ -143,11 +136,11 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
       val function = localState._1    // function name
       val locals = localState._2      // map expr -> label
 
-      if (otherAsThis.functionLocalState.contains(function)) locals.foreach(local => {
+      if (other.functionLocalState.contains(function)) locals.foreach(local => {
         val variable = local._1
         val constraint = local._2
 
-        otherAsThis.functionLocalState.getOrElse(function, throw new Exception("CP Analysis: join error.")).getOrElse(variable, "Any") match {
+        other.functionLocalState.getOrElse(function, throw new Exception("CP Analysis: join error.")).getOrElse(variable, "Any") match {
           case stmt : Option[RegisterAssign] if !stmt.isEmpty => {
             if (constraint.get != stmt.get) functionLocalState.getOrElse(function, throw new Exception("CP Analysis: join error.")).update(variable, None)
           }
@@ -159,11 +152,11 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
     })
 
     // if there exists a function state or variable in OTHER not in THIS, add to THIS
-    otherAsThis.functionLocalState.foreach(localState => {
+    other.functionLocalState.foreach(localState => {
       val function = localState._1    // function name
       val locals = localState._2      // map expr -> label
 
-      if (!functionLocalState.contains(function)) functionLocalState.update(function, otherAsThis.functionLocalState.getOrElse(function, null))
+      if (!functionLocalState.contains(function)) functionLocalState.update(function, other.functionLocalState.getOrElse(function, null))
       else locals.foreach(local => {
         val variable = local._1
         val constraint = local._2
@@ -176,7 +169,7 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
       val global = globalConstraint._1
       val constraint = globalConstraint._2
 
-      otherAsThis.programGlobalState.getOrElse(global, "Any") match {
+      other.programGlobalState.getOrElse(global, "Any") match {
         case stmt : Option[RegisterAssign] if !stmt.isEmpty => if (constraint.get != stmt.get) programGlobalState.update(global, None)
         case "Any" =>
         case None => programGlobalState.update(global, None)
@@ -184,7 +177,7 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
       }
     })
 
-    otherAsThis.programGlobalState.foreach(globalConstraint => {
+    other.programGlobalState.foreach(globalConstraint => {
       val global = globalConstraint._1
       val constraint = globalConstraint._2
 
@@ -203,18 +196,16 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
     * @return
     */
   override def meet(other: this.type) = {
-    val otherAsThis : ConstantPropagationAnalysis = typeCheck(other)
-
     functionLocalState.foreach(localState => {
       val function = localState._1    // function name
       val locals = localState._2      // map expr -> label
 
-      if (!otherAsThis.functionLocalState.contains(function)) functionLocalState.remove(function)
+      if (!other.functionLocalState.contains(function)) functionLocalState.remove(function)
       else locals.foreach(local => {
         val variable = local._1
         val constraint = local._2
 
-        otherAsThis.functionLocalState.getOrElse(function, throw new Exception("CP Analysis: meet error.")).getOrElse(variable, "Any") match {
+        other.functionLocalState.getOrElse(function, throw new Exception("CP Analysis: meet error.")).getOrElse(variable, "Any") match {
           case stmt : Option[RegisterAssign] if !stmt.isEmpty => {
             if (constraint == None) functionLocalState.getOrElse(function, throw new Exception("CP Analysis: meet error.")).update(variable, stmt) 
             else if (stmt.get != constraint.get) functionLocalState.getOrElse(function, throw new Exception("CP Analysis: meet error.")).remove(variable)
@@ -230,7 +221,7 @@ class ConstantPropagationAnalysis(state: State) extends AnalysisPoint {
       val global = globalConstraint._1
       val constraint = globalConstraint._2
 
-      otherAsThis.programGlobalState.getOrElse(global, "Any") match {
+      other.programGlobalState.getOrElse(global, "Any") match {
         // constant
         case stmt : Option[MemAssign] if !stmt.isEmpty => if (constraint == None) programGlobalState.update(global, stmt) else if (stmt.get != constraint.get) programGlobalState.remove(global)
         // bottom element

@@ -23,12 +23,8 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
     var currentFunction: String = "main";
     var functionStack: Stack[String] = Stack("main");
 
-    /* def currentFunction: String = {
-        functionStack.head
-    }*/
-
     def this() = {
-        this(Map());
+        this(Map[Expr, Set[Expr]]());
     }
 
     private def countEdges: Int = {
@@ -40,48 +36,43 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
     }
 
     override def equals(other: this.type): Boolean = {
-        var otherAsThis: PointsToAnalysis = typeCheck(other);
-        this.currentState.equals(otherAsThis.currentState);
+        if other == null then return false;
+        this.currentState.equals(other.currentState)
     }
 
     override def compare(other: this.type): Int = {
-        var otherAsThis: PointsToAnalysis = typeCheck(other);
-        (this.countEdges - otherAsThis.countEdges).sign;
+        (this.countEdges - other.countEdges).sign;
     }
 
-    override def join(other: this.type) = {
-        var otherAsThis: PointsToAnalysis = typeCheck(other);
+    override def join(other: this.type): this.type = {
         var combined: Map[Expr, Set[Expr]] = Map[Expr, Set[Expr]]();
 
         this.currentState.foreach(cEdge => {
-            otherAsThis.currentState.foreach(oEdge => {
+            other.currentState.foreach(oEdge => {
                 if (cEdge._1 == oEdge._1) {
                     combined.concat(Map(cEdge._1 -> cEdge._2.union(oEdge._2)));
                 }
             })
         });
 
-        this.currentState = combined;
-        this;
+        PointsToAnalysis(combined).asInstanceOf[this.type];
     }
 
-    override def meet(other: this.type) = {
-        var otherAsThis: PointsToAnalysis = typeCheck(other);
+    override def meet(other: this.type): this.type = {
         var intersected: Map[Expr, Set[Expr]] = Map[Expr, Set[Expr]]();
 
         currentState.foreach(cEdge => {
-            otherAsThis.currentState.foreach(oEdge => {
+            other.currentState.foreach(oEdge => {
                 if (cEdge._1 == oEdge._1) {
                     intersected.concat(Map(cEdge._1 -> cEdge._2.intersect(oEdge._2)));
                 }
             })
         });
 
-        this.currentState = intersected;
-        this;
+        PointsToAnalysis(intersected).asInstanceOf[this.type];
     }
 
-    override def transfer(stmt: Stmt) = {
+    override def transfer(stmt: Stmt): this.type = {
         println(stmt)
         var newAnalysedMap: Map[Expr, Set[Expr]] = currentState;
         stmt match {
@@ -181,8 +172,7 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
             }
         }
 
-        this.currentState = newAnalysedMap;
-        return this;
+        PointsToAnalysis(newAnalysedMap).asInstanceOf[this.type];
     }
 
     def knownPointer(expr: Expr): Boolean = {
@@ -201,14 +191,15 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
         hasKnownPointer;
     }
 
-    override def createLowest = {
-        this.currentState = Map[Expr, Set[Expr]]();
-        this.currentFunction = "main"
-        this.functionStack = Stack("main")
-        this;
+    override def createLowest: this.type = {
+        var newPoint: PointsToAnalysis = PointsToAnalysis(Map[Expr, Set[Expr]]());
+        newPoint.currentFunction = "main";
+        newPoint.functionStack = Stack("main");
+        
+        newPoint.asInstanceOf[this.type]
     }
 
-    override def applyChanges(preState: State, information: Map[Stmt, this.type]) = {
+    override def applyChanges(preState: State, information: Map[Stmt, this.type]): State = {
         preState;
     }
 

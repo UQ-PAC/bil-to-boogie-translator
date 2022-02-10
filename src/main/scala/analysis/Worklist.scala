@@ -8,15 +8,16 @@ import java.lang.NullPointerException;
 class Worklist(val analysis: AnalysisPoint, startState: State) {
     private final val debug: Boolean = false;
     private val directionForwards: Boolean = analysis.isForwards;
-    private val libraryFunctions: Set[String] = analysis.libraryFunctions;
 
-    var currentCallString: Set[String] = Set();
-    var currentWorklist: ArrayDeque[Block] = ArrayDeque();
-
-    var previousStmtAnalysisState: analysis.type = analysis.createLowest;
-    var stmtAnalysisInfo: Map[Stmt, analysis.type] = Map();
-    var blockAnalysisInfo: Map[Block, analysis.type] = Map();
+    var currentCallString: Set[String] = Set(); // call string to avoid recursion
+    var currentWorklist: ArrayDeque[Block] = ArrayDeque(); // queue of blocks to work on per-function
+    var previousStmtAnalysisState: analysis.type = analysis.createLowest; // previous analysisPoint info per-statement
+    var stmtAnalysisInfo: Map[Stmt, analysis.type] = Map(); // "output" info as the end result of the analysis
+    var blockAnalysisInfo: Map[Block, analysis.type] = Map(); // final states of all analysed blocks
     
+    /**
+     * Not sure if these getters are really necessary at the moment
+     */
     def getAllInfo: Map[Stmt, analysis.type] = {
         stmtAnalysisInfo;
     }
@@ -25,6 +26,9 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
         stmtAnalysisInfo.getOrElse(stmt, analysis.createLowest);
     }
 
+    /**
+     * Standard "do everything" function, inc. clearing unused info.
+     */
     def doAnalysis: State = {
         analyseFunction("main");
         if debug then println(getAllInfo);
@@ -32,12 +36,21 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
         previousStmtAnalysisState = null;
         blockAnalysisInfo = null;
 
-        println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        println(getAllInfo);
         analysis.applyChanges(startState, getAllInfo);
     }
 
-    def analyseFunction(name: String) = {
+    /**
+     * Generic function-analysis function.
+     * Forms mutual recusion with analyseBlock and analyseStmt, where analyseStmt calls this on new CallStmts
+     * 
+     * N.B. Because of the way worklist algorithms work, any blocks that depend on a loop will be re-computed every time
+     * until that loop is stable (i.e. further iterations make no changes). Ideally we could analyse the loop on it's own
+     * and ignore the children until it stabilises.
+     * 
+     * For small programs this is negligible, but worst-case we have a large branching structure with many blocks that all
+     * depend on an initial loop; this forces us to re-analyse every block until that original loop stabilises.
+     */
+    def analyseFunction(name: String): Unit = {
         if debug then println("analysing function: " + name);
 
         currentCallString = currentCallString + name;
@@ -49,25 +62,38 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
         while (!currentWorklist.isEmpty) {
             var nextBlockToAnalyse: Block = currentWorklist.removeHead();
 
+            // if the block has parents, take the combine of all parent blocks' final states
+            // worklist should ensure that children get analysed at least once after all parents are resolved
             if (!getBlockParents(nextBlockToAnalyse).isEmpty) {
                 getBlockParents(nextBlockToAnalyse).foreach(block => {
                     previousStmtAnalysisState = previousStmtAnalysisState.combine(blockAnalysisInfo.getOrElse(block, analysis.createLowest))
                 });
             } else {
+                // TODO: Should this be removed (keep previousStmtAnalysisState as functionStartAnalysisState?)
                 previousStmtAnalysisState = analysis.createLowest;
             }
 
             currentFunctionAnalysedInfo = analyseBlock(nextBlockToAnalyse, currentFunctionAnalysedInfo);
 
             if (!currentWorklist.isEmpty) {
+                // TODO: Should this be removed (keep previousStmtAnalysisState on loop?)
+                // currently, for children of root block, previousStmtAnalysisState will be functionStartAnalysisState.combine(*root block's final state*)
+
+                // N.B this code does solve a problem where final function states are carried into the start of the function, resulting in T for all statements.
                 previousStmtAnalysisState = functionStartAnalysisState;
             }
         }
 
+        // Once the entire function is done, save it.
         saveNewAnalysisInfo(currentFunctionAnalysedInfo);
         currentCallString = currentCallString.filter(funcName => {funcName != name});
     }
 
+    /**
+     * Analyses a block (of statements) by analysing each statement in .lines. We assume they are in execution order but this might not be guaranteed.
+     * 
+     * Updates the blockAnalysisInfo map at the end of all lines, and adds the block and all children to queue if it's changed, if they weren't already there.
+     */
     def analyseBlock(block: Block, currentInfo: Map[Stmt, analysis.type]): Map[Stmt, analysis.type] = {
         if debug then println("analysing block: " + block.label);
         var outputInfo: Map[Stmt, analysis.type] = currentInfo;
@@ -77,38 +103,53 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
         })
         
         if (!previousStmtAnalysisState.asInstanceOf[analysis.type].equals(blockAnalysisInfo.getOrElse(block, null).asInstanceOf[analysis.type])) {
-            println("B")
             blockAnalysisInfo = blockAnalysisInfo + (block -> previousStmtAnalysisState);
 
+            // + block makes this remarkably convenient
             (getBlockChildren(block) + block).foreach(b => {
                 if (!currentWorklist.contains(b)) {
                     currentWorklist.append(b);
                 }
             })
         } else {
+            // if nothing has changed, do nothing - the analysis will now be in a "wrap-up" stage where it's effectively just checking itself.
             ;
         }
 
         outputInfo;
     }
 
+    /**
+     * Analyses a single statement, from the known previous state.
+     * 
+     * Saves the new previousStmtAnalysisState and updates the per-function map of analysed info.
+     * 
+     * Also handles recursion and function calls by the match statement, which has a special case for CallStmts.
+     */
     def analyseStmt(stmt: Stmt, currentInfo: Map[Stmt, analysis.type]): Map[Stmt, analysis.type] = {
         if debug then println("analysing stmt: " + stmt);
         var outputInfo: Map[Stmt, analysis.type] = currentInfo;
         
         stmt match {
             case functionCallStmt: CallStmt => {
+                // if we have a function call, pause the current analysis and analyse the given function
+                // effectively just inlines every function every time it's called, no function signatures.
                 var inProgressWorklist: ArrayDeque[Block] = currentWorklist;
 
                 if (!currentCallString.contains(functionCallStmt.funcName)) {
+                    // pass through the CallStmt to the analysis so it knows what's happening, but only
+                    // moves into the function if it's not a library function.
                     previousStmtAnalysisState = previousStmtAnalysisState.transferAndCheck(stmt);
 
                     outputInfo = currentInfo + (stmt -> previousStmtAnalysisState);
 
-                    if (!libraryFunctions.contains(functionCallStmt.funcName)) {
+                    if (!analysis.libraryFunctions.contains(functionCallStmt.funcName)) {
                         analyseFunction(functionCallStmt.funcName);
                     }
                 } else {
+                    // ignores recursion for now.
+                    // TODO: consider passing them as if they were library functions, let the analysis define how
+                    // it handles recursion?
                     println(currentCallString);
                     println("ignoring recursive call in " + functionCallStmt.funcName);
                 }
@@ -118,7 +159,7 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
             case _ => {
                 previousStmtAnalysisState = previousStmtAnalysisState.transferAndCheck(stmt);
 
-                outputInfo  = currentInfo + (stmt -> previousStmtAnalysisState);
+                outputInfo = currentInfo + (stmt -> previousStmtAnalysisState);
             }
         }
 
@@ -128,11 +169,13 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
     /**
      * The process for these two is similar:
 
-     * Find the FunctionState that the block belongs to
-     * Get the labels of its children/parents from that FunctionState
-     * Map those labels to blocks, by:
-     *  Finding the FunctionState that the label belongs to
-     *  Getting the Block from that FunctionState
+     * Loop over all functions to find which one owns the given block (by label)
+     * Gets the (string labels of) children or parents of that block from the owning function
+     * Maps these string labels to blocks by
+     *     Looping over all functions to find which owns the given block
+     *     Getting the Block object from the owning function based on the label
+     * 
+     * Thus, we have two functions that're potentially O(n^3) in the number of blocks. Hot damn.
      */
     def getBlockChildren(block: Block): Set[Block] = {
         startState.functions.find((func: FunctionState) => {
@@ -167,6 +210,17 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
 
     /**
      * "Commits" the info from the current function to the output map.
+     * 
+     * TODO: The current method can result in information loss. Scala errors have forced me to forgo combining AnalysisPoints in favor
+     * of overwriting them. In theory, because the analysis should only gain information, this is mostly OK, but functions that get called from multiple
+     * locations might only be stored in the output info with the final call's info.
+     * 
+     * Old (combining) version:
+        def saveNewAnalysisInfo(functionAnalysedInfo: Map[Stmt, AnalysisPoint]) = {
+            functionAnalysedInfo.keys.foreach(currentFunctionAnalysisPoint => {
+                finalAnalysedStmtInfo.update(currentFunctionAnalysisPoint, finalAnalysedStmtInfo.getOrElse(currentFunctionAnalysisPoint, analysis.createLowest).combine(functionAnalysedInfo.getOrElse(currentFunctionAnalysisPoint, analysis.createLowest)));
+            });
+        }
      */
     def saveNewAnalysisInfo(newInfo: Map[Stmt, analysis.type]) = {
         for ((key, value) <- newInfo) {

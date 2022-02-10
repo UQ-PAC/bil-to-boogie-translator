@@ -12,7 +12,7 @@ abstract class AnalysisPoint {
     val isForwards: Boolean = true;
 
     /**
-     * Library functions that get skipped instead of inlining
+     * Library functions that get skipped instead of inlining.
      */
     val libraryFunctions: Set[String] = Set("malloc");
 

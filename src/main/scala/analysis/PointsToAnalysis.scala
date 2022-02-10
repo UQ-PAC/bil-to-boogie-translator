@@ -180,11 +180,7 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
         
         expr.vars.foreach(c => {
             if (c == Register("SP", None) || c == Register("FP", None) || c == Register("LR", None)) {
-                hasKnownPointer = true;
-            }
-
-            if (hasKnownPointer) {
-                return hasKnownPointer;
+                return true;
             }
         });
 

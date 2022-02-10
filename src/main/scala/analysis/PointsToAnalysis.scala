@@ -12,6 +12,13 @@ import analysis.AnalysisPoint;
 import util.{SegmentationViolationException, AssumptionViolationException};
 import vcgen.{State, Block, FunctionState};
 
+/**
+ * A lot of my time has been spent on getting the worklist functional, so this analysis is somewhat untested.
+ * TODO / future work:
+ *  Put more thought into the transfer function and how it handles different things. 
+ *  Sort out a "real" way of dealing with the "constant" pointers (i.e. SP, FP, LR)
+ *  Test the analysis. Currently, I see a *lot* of Expr -> Set(null), which means pointers are being unnecessarily deleted.
+ */
 class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoint {
     // i.e. map of Expr[X0] -> Expr[SP + 10]
     // "not a pointer" value is Literal(null)

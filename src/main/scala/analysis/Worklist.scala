@@ -5,8 +5,14 @@ import astnodes.stmt.*;
 import scala.collection.mutable.ArrayDeque;
 import java.lang.NullPointerException;
 
+/**
+ * TODO & future work:
+ *  Consider mixins - have a series of traits that define different analysis properties like path-sensitivity
+ *  Consider replacing the entire worklist & analysis framework with a single analysis, i.e. VSA (see G. Balakrishnan)
+ *  Consider parameterising the analysis with a generic? (questions: how to insantiate an analysis when you only have the type?)
+ */
 class Worklist(val analysis: AnalysisPoint, startState: State) {
-    private final val debug: Boolean = false;
+    private final val debug: Boolean = true;
     private val directionForwards: Boolean = analysis.isForwards;
 
     var currentCallString: Set[String] = Set(); // call string to avoid recursion
@@ -139,7 +145,7 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
                 if (!currentCallString.contains(functionCallStmt.funcName)) {
                     // pass through the CallStmt to the analysis so it knows what's happening, but only
                     // moves into the function if it's not a library function.
-                    previousStmtAnalysisState = previousStmtAnalysisState.transferAndCheck(stmt);
+                    previousStmtAnalysisState = previousStmtAnalysisState.transfer(stmt);
 
                     outputInfo = currentInfo + (stmt -> previousStmtAnalysisState);
 
@@ -157,7 +163,7 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
                 currentWorklist = inProgressWorklist;
             }
             case _ => {
-                previousStmtAnalysisState = previousStmtAnalysisState.transferAndCheck(stmt);
+                previousStmtAnalysisState = previousStmtAnalysisState.transfer(stmt);
 
                 outputInfo = currentInfo + (stmt -> previousStmtAnalysisState);
             }

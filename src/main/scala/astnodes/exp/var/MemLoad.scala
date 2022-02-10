@@ -19,8 +19,13 @@ case class MemLoad(var exp: Expr, override val size: Some[Int]) extends Var {
 
   override def vars = List(this) // TOOD also exp.vars????
 
-  /** Assumes: anything on the stack is represented as SP + val (where val is an int etc)
-    */
+  /**
+   * Assumes: anything on the stack is represented as SP + val (where val is an int etc)
+   * Also fails sometimes, maybe need to call onStackMatch every time?
+   * But want to override it if an analysis identifies SP taint in a register access, for example:
+       R0 := SP + 0x08
+       R1 := mem[R0]
+   */
   var onStack: Boolean = onStackMatch(exp)
 
   def onStackMatch(expr: Expr): Boolean = expr match {

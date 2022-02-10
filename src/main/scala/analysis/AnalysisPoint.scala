@@ -80,6 +80,8 @@ abstract class AnalysisPoint {
      * 
      * The only case for overriding this function should be if the analysis is top-down rather than bottom-up
      * In that scenario, changing the comparison to < 0 should make it work.
+     * 
+     * TODO: Is this necessary?
      */
     def transferAndCheck(stmt: Stmt): this.type = {
         var newState: this.type = transfer(stmt);

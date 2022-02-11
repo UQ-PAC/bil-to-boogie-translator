@@ -52,28 +52,34 @@ class PointsToAnalysis(pointsToGraph: Map[Expr, Set[Expr]]) extends AnalysisPoin
     }
 
     override def join(other: this.type): this.type = {
-        var combined: Map[Expr, Set[Expr]] = Map[Expr, Set[Expr]]();
+        var unioned: Map[Expr, Set[Expr]] = Map[Expr, Set[Expr]]();
 
-        this.currentState.foreach(cEdge => {
-            other.currentState.foreach(oEdge => {
-                if (cEdge._1 == oEdge._1) {
-                    combined.concat(Map(cEdge._1 -> cEdge._2.union(oEdge._2)));
-                }
-            })
+        currentState.foreach((startExpr, startSet) => {
+            var x: Set[Expr] = other.currentState.getOrElse(startExpr, null);
+            if (x == null) {
+                unioned = unioned ++ Map(startExpr -> startSet);
+            } else {
+                unioned = unioned ++ Map(startExpr ->  startSet.union(x));
+            }
         });
 
-        PointsToAnalysis(combined).asInstanceOf[this.type];
+        other.currentState.foreach((newExpr, newSet) => {
+            if (!unioned.contains(newExpr)) {
+                unioned = unioned ++ Map(newExpr -> newSet);
+            }
+        });
+
+        PointsToAnalysis(unioned).asInstanceOf[this.type];
     }
 
     override def meet(other: this.type): this.type = {
         var intersected: Map[Expr, Set[Expr]] = Map[Expr, Set[Expr]]();
 
-        currentState.foreach(cEdge => {
-            other.currentState.foreach(oEdge => {
-                if (cEdge._1 == oEdge._1) {
-                    intersected.concat(Map(cEdge._1 -> cEdge._2.intersect(oEdge._2)));
-                }
-            })
+        currentState.foreach((startExpr, startSet) => {
+            var x: Set[Expr] = other.currentState.getOrElse(startExpr, null);
+            if (x != null) {
+                intersected = intersected ++ Map(startExpr -> startSet.intersect(x))
+            }
         });
 
         PointsToAnalysis(intersected).asInstanceOf[this.type];

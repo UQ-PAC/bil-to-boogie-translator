@@ -180,8 +180,6 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
      * Maps these string labels to blocks by
      *     Looping over all functions to find which owns the given block
      *     Getting the Block object from the owning function based on the label
-     * 
-     * Thus, we have two functions that're potentially O(n^3) in the number of blocks. Hot damn.
      */
     def getBlockChildren(block: Block): Set[Block] = {
         startState.functions.find((func: FunctionState) => {
@@ -216,21 +214,17 @@ class Worklist(val analysis: AnalysisPoint, startState: State) {
 
     /**
      * "Commits" the info from the current function to the output map.
-     * 
-     * TODO: The current method can result in information loss. Scala errors have forced me to forgo combining AnalysisPoints in favor
-     * of overwriting them. In theory, because the analysis should only gain information, this is mostly OK, but functions that get called from multiple
-     * locations might only be stored in the output info with the final call's info.
-     * 
-     * Old (combining) version:
-        def saveNewAnalysisInfo(functionAnalysedInfo: Map[Stmt, AnalysisPoint]) = {
-            functionAnalysedInfo.keys.foreach(currentFunctionAnalysisPoint => {
-                finalAnalysedStmtInfo.update(currentFunctionAnalysisPoint, finalAnalysedStmtInfo.getOrElse(currentFunctionAnalysisPoint, analysis.createLowest).combine(functionAnalysedInfo.getOrElse(currentFunctionAnalysisPoint, analysis.createLowest)));
-            });
-        }
+     * The typesystem in this one has been painful to deal with.
      */
     def saveNewAnalysisInfo(newInfo: Map[Stmt, analysis.type]) = {
-        for ((key, value) <- newInfo) {
-            stmtAnalysisInfo = stmtAnalysisInfo + (key -> value.asInstanceOf[analysis.type]);
-        }
+        var outputInfo: Map[Stmt, AnalysisPoint] = Map();
+
+        newInfo.foreach((key: Stmt, value: analysis.type) => {
+            outputInfo = outputInfo ++ Map(key -> 
+                stmtAnalysisInfo.getOrElse(key, analysis.createLowest).asInstanceOf[analysis.type].combine(value)
+            );
+        })
+
+        stmtAnalysisInfo = outputInfo.asInstanceOf[Map[Stmt, analysis.type]];
     }
 }

@@ -11,6 +11,8 @@ val antlrRuntime = "org.antlr" % "antlr4-runtime" % "4.9.3"
 val sourceCode = "com.lihaoyi" %% "sourcecode" % "0.3.0"
 val mainArgs = "com.lihaoyi" %% "mainargs" % "0.5.1"
 
+libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4"
+
 lazy val root = project
   .in(file("."))
   .enablePlugins(Antlr4Plugin)

@@ -9,6 +9,7 @@ import scala.jdk.CollectionConverters._
 
 object BAPLoader {
 
+
   def visitProject(ctx: ProjectContext): BAPProgram = {
     val memorySections = visitSections(ctx.sections)
     val subroutines = visitProgram(ctx.program)
@@ -123,13 +124,8 @@ object BAPLoader {
     }
     val line = visitQuoteString(ctx.tid.name)
     val insn = parseFromAttrs(ctx.attrs, "insn").getOrElse("")
-    BAPDirectCall(
-      parseAllowed(visitQuoteString(ctx.callee.tid.name).stripPrefix("@")),
-      visitExp(ctx.cond),
-      returnTarget,
-      line,
-      insn
-    )
+    val function = visitQuoteString(ctx.callee.tid.name).stripPrefix("@")
+      BAPDirectCall(parseAllowed(function), visitExp(ctx.cond), returnTarget, line, insn)
   }
 
   def visitGotoJmp(ctx: GotoJmpContext): BAPGoTo = {

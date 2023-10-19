@@ -1,8 +1,10 @@
 package translating
 
-import bap._
-import ir._
-import specification._
+import analysis.NonReturningFunctions
+import bap.*
+import ir.*
+import specification.*
+
 import scala.collection.mutable
 import scala.collection.mutable.Map
 import scala.collection.mutable.ArrayBuffer
@@ -41,11 +43,14 @@ class BAPToIR(var program: BAPProgram, mainAddress: Int) {
     for (s <- program.subroutines) {
       for (b <- s.blocks) {
         val block = labelToBlock(b.label)
+
         for (st <- b.statements) {
           block.statements.append(translate(st))
         }
+
         for (j <- b.jumps) {
-          block.jumps.append(translate(j))
+          val translated = translate(j)
+          block.jumps.append(translated)
         }
       }
     }
@@ -65,6 +70,7 @@ class BAPToIR(var program: BAPProgram, mainAddress: Int) {
     case _                 => throw new Exception("unsupported statement: " + s)
   }
 
+
   private def translate(j: BAPJump) = j match {
     case b: BAPDirectCall =>
       DirectCall(
@@ -78,6 +84,7 @@ class BAPToIR(var program: BAPProgram, mainAddress: Int) {
       GoTo(labelToBlock(b.target), coerceToBool(b.condition))
     case _ =>
       throw new Exception("unsupported jump: " + j)
+
   }
 
   /*

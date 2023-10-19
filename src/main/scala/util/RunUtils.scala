@@ -76,7 +76,8 @@ object RunUtils {
 
     val IRTranslator = BAPToIR(bapProgram, mainAddress)
     var IRProgram = IRTranslator.translate
-
+    NonReturningFunctions().transform(IRProgram.procedures, externalFunctions)
+    NonReturningFunctions().trimDeletedBlocks(IRProgram.procedures)
     val specification = loadSpecification(specFileName, IRProgram, globals)
 
     Logger.info("[!] Removing external function calls")

@@ -269,14 +269,15 @@ class GTIRBToIR(mods: Seq[Module], parserMap: immutable.Map[String, Array[Array[
 
     val blockAddress = blockUUIDToAddress.get(blockUUID)
     val block = Block(blockLabel, blockAddress)
-    procedure.addBlocks(block)
+    procedure.addBlock(block)
     if (uuidToBlock.contains(blockUUID)) {
       // TODO this is a case that requires special consideration
       throw Exception(s"block ${byteStringToString(blockUUID)} is in multiple functions")
     }
     uuidToBlock += (blockUUID -> block)
     if (blockUUID == entranceUUID) {
-      procedure.entryBlock = block
+      assert(procedure.entryBlock.singleSuccessor.contains(procedure.returnBlock))
+      procedure.entryBlock.replaceJump(GoTo(block))
     }
     block
   }
@@ -292,7 +293,7 @@ class GTIRBToIR(mods: Seq[Module], parserMap: immutable.Map[String, Array[Array[
   private def cleanUpIfPCAssign(block: Block, procedure: Procedure): Unit = {
     var newBlockCount = 0
     var currentBlock = block
-    var currentStatement = currentBlock.statements.head()
+    var currentStatement = currentBlock.statements.head
     var breakLoop = false
     val queue = mutable.Queue[Block]()
     while (!breakLoop) {
@@ -306,7 +307,7 @@ class GTIRBToIR(mods: Seq[Module], parserMap: immutable.Map[String, Array[Array[
 
           if (queue.nonEmpty) {
             currentBlock = queue.dequeue()
-            currentStatement = currentBlock.statements.head()
+            currentStatement = currentBlock.statements.head
           } else {
             breakLoop = true
           }
@@ -326,7 +327,7 @@ class GTIRBToIR(mods: Seq[Module], parserMap: immutable.Map[String, Array[Array[
 
           if (queue.nonEmpty) {
             currentBlock = queue.dequeue()
-            currentStatement = currentBlock.statements.head()
+            currentStatement = currentBlock.statements.head
           } else {
             breakLoop = true
           }
@@ -335,7 +336,7 @@ class GTIRBToIR(mods: Seq[Module], parserMap: immutable.Map[String, Array[Array[
             currentStatement = currentBlock.statements.getNext(currentStatement)
           } else if (queue.nonEmpty) {
             currentBlock = queue.dequeue()
-            currentStatement = currentBlock.statements.head()
+            currentStatement = currentBlock.statements.head
           } else {
             breakLoop = true
           }

@@ -1,7 +1,7 @@
 package analysis
 
 import analysis.*
-import ir.{SignExtend, *}
+import ir.*
 import util.Logger
 
 import scala.collection.mutable
@@ -39,9 +39,7 @@ class SSAForm(program: Program) {
       val stack = mutable.Stack[Block]()
 
       // Start with the entry block
-      if (proc.entryBlock.isDefined) {
-        stack.push(proc.entryBlock.get)
-      }
+      stack.push(proc.entryBlock)
 
       while (stack.nonEmpty) {
         val currentBlock = stack.pop()
@@ -90,6 +88,7 @@ class SSAForm(program: Program) {
               } {
                 blockBasedMappings((b, varr)) ++= blockBasedMappings(currentBlock, varr)
               }
+            case r: Return =>
           }
           // Push unvisited successors onto the stack
           stack.pushAll(currentBlock.nextBlocks)

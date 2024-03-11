@@ -433,7 +433,7 @@ class ProgramCfgFactory:
       cfg.addEdge(funcEntryNode, funcExitNode)
     } else {
       // Recurse through blocks
-      visitBlock(proc.entryBlock.get, funcEntryNode)
+      visitBlock(proc.entryBlock, funcEntryNode)
     }
 
     /** Add a block to the CFG. A block in this case is a basic block, so it contains a list of consecutive statements
@@ -581,6 +581,11 @@ class ProgramCfgFactory:
                 cfg.addEdge(callNode, noReturn)
                 cfg.addEdge(noReturn, funcExitNode)
             }
+          case r: Return =>
+            cfg.addEdge(precNode, jmpNode)
+            val returnNode = CfgProcedureReturnNode()
+            cfg.addEdge(jmpNode, returnNode)
+            cfg.addEdge(returnNode, funcExitNode)
           case iCall: IndirectCall =>
             Logger.debug(s"Indirect call found: $iCall in ${proc.name}")
 
@@ -634,39 +639,22 @@ class ProgramCfgFactory:
     case binop: BinaryExpr =>
       binop.op match {
         case BVNEQ =>
-          BinaryExpr(
-            BVEQ,
-            binop.arg1,
-            binop.arg2
-          )
+          BinaryExpr(BVEQ, binop.arg1, binop.arg2)
         case BVEQ =>
-          BinaryExpr(
-            BVNEQ,
-            binop.arg1,
-            binop.arg2
-          )
+          BinaryExpr(BVNEQ, binop.arg1, binop.arg2)
         case _ =>
           // Worst case scenario we just take the logical not of everything
-          UnaryExpr(
-            BoolNOT,
-            binop
-          )
+          UnaryExpr(BoolNOT, binop)
       }
     case unop: UnaryExpr =>
       unop.op match {
         case BVNOT | BoolNOT =>
           unop.arg
         case _ =>
-          UnaryExpr(
-            BoolNOT,
-            unop
-          )
+          UnaryExpr(BoolNOT, unop)
       }
     case _ =>
-      UnaryExpr(
-        BoolNOT,
-        expr
-      )
+      UnaryExpr(BoolNOT, expr)
   }
 
   /** Recursively inline procedures. This has a dumb/flat approach - we simply continue inlining each all direct calls

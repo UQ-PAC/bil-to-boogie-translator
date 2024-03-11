@@ -34,7 +34,7 @@ class ParamAnalysis(val program: Program) extends Analysis[Any] {
       assert(visitedProcs.contains(proc))
       results(proc)
     else if visitedProcs.contains(proc) && !completeProcs.contains(proc) then // most likely caused by mutual recursion
-      throw new Exception("Unresolvable Recursive Cycle at: " + proc)
+      throw Exception("Unresolvable Recursive Cycle at: " + proc)
     else // resolve parameters
       visitedProcs += proc
       if proc.calls.isEmpty || proc.calls.equals(Set(proc)) then // no call to other functions
@@ -43,17 +43,14 @@ class ParamAnalysis(val program: Program) extends Analysis[Any] {
         )
         results += (proc -> intraLivenessResults(proc).diff(ignoreRegisters))
       else
-        val exit = proc.returnBlock.get.jump
+        val exit = proc.returnBlock.jump
         val calleeParams = proc.calls.intersect(calledProcs).foldLeft(Set(): Set[Variable]) {
-          (s, proc) =>
-            s ++ getProcParams(proc)
+          (s, proc) => s ++ getProcParams(proc)
         }
 
         val params = interLivenessResults(proc).keys.toSet.diff(ignoreRegisters).intersect(intraLivenessResults(proc).union(calleeParams))
         val nonParams = interLivenessResults(proc).keys.toSet.diff(ignoreRegisters).diff(intraLivenessResults(proc).union(calleeParams))
-        nonParams.foreach(
-          v => assert(interLivenessResults(exit).keys.toSet.contains(v))
-        )
+        nonParams.foreach(v => assert(interLivenessResults(exit).keys.toSet.contains(v)))
 
         results += (proc -> params)
 
